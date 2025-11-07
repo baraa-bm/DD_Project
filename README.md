@@ -42,10 +42,3 @@ Prime Implicants (patterns): 0-1 1-1 11-
 **Explanation:**  
 The minterms represent all the input combinations for which the function is true.  
 The algorithm groups, compares, and minimizes them to produce a shorter equivalent Boolean expression.
-
----
-
-## 🧾 Conclusion
-This project successfully demonstrates the implementation of Boolean expression simplification using the Quine–McCluskey algorithm. It showcases structured C++ programming through file separation, modular class design, and algorithmic logic handling. The program provides a strong foundation for advanced digital logic systems and can be extended for educational or industrial use.
-
-
