@@ -5,6 +5,7 @@
 #include <string>
 #include <bitset>
 #include <filesystem>
+#include "TermGroup.h"
 
 using namespace std;
 
@@ -97,6 +98,15 @@ Data input;
         dBinary.push_back(bits.substr(20 - input.nVariables));
     }
 
+    TermGroup group(input.nVariables, MaxTerm);
 
+    //generating prime implicants
+    vector<Term> PIs = group.generatePrimeImplicants(input.minterms, input.dontCares);
+
+    //printing results
+    cout << "Results" << endl;
+    group.printPrimeImplicants();
+
+    return 0;
 
 }

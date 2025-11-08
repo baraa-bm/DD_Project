@@ -9,4 +9,10 @@ add_executable(DD_Project
         test2
         test3
         test4
-        test5)
+        test5
+        Simplifier.cpp
+        Simplifier.h
+        InputHandler.cpp
+        TermGroup.cpp
+        TermGroup.h
+        VerilogGenerator.cpp)
