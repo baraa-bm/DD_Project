@@ -16,11 +16,12 @@ using namespace std;
 //represents a single term
 class Term {
 public:
-string binary; //binary pattern
-vector<int> coveredMinterms; //which minterms this term covers
-bool combined; //if it has been merged
+    string binary; //binary pattern
+    vector<int> coveredMinterms; //which minterms this term covers
+    bool combined; //if it has been merged
 
-Term (string bin, vector<int> mins) : binary(move(bin)), coveredMinterms(move(mins)), combined(false) {}
+    Term (string bin, vector<int> mins) : binary(move(bin)), coveredMinterms(move(mins)), combined(false) {}
+};
 
 //class that handles both minterms and maxterms
 class TermGroup {
