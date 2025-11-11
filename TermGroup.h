@@ -30,7 +30,6 @@ int numVariables; //number of variables
 bool isMaxterm; //true if we're simplifying from maxterms
 vector<Term> primeImplicants; //final list of prime implicants
 
-string toBinary (int value, int bits); //convert int to binary string
 int countOnes(const string& binary); //count 1s in binary string
 bool canCombine(const string& a, const string& b); //check if differ by one bit
 string combine(const string& a, const string& b); //replace differing bit with -
@@ -42,7 +41,7 @@ public:
 TermGroup(int vars, bool maxtermMode = false);
 
 //generate all prime implicants given minterms/maxterms and dont cares
-vector<Term> generatePrimeImplicants(const vector<int>& terms, const vector<int>& dontCares);
+vector<Term> generatePrimeImplicants(const vector<string>& termBinaries, const vector<int>& termNumbers, const vector<string>& dontCareBinaries, const vector<int>& dontCareNumbers);
 
 //print prime implicants
 void printPrimeImplicants() const;

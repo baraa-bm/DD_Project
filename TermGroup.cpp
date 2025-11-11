@@ -8,15 +8,6 @@
 TermGroup::TermGroup(int vars, bool maxtermMode) : numVariables(vars), isMaxterm(maxtermMode) {}
 
 
-//converts an integer to binary string
-string TermGroup::toBinary(int value, int bits) {
-string bin(bits, '0');
-for (int i = bits - 1; i >= 0; i--) {
-bin[i] = (value % 2) + '0';
-value /= 2;
-}
-return bin;
-}
 
 //count numer of 1s in binary string
 int TermGroup::countOnes(const string& binary) {
@@ -64,60 +55,61 @@ return minterms;
 
 
 //generating prime implicants
-vector<Term> TermGroup::generatePrimeImplicants(const vector<int>& terms, const vector<int>& dontCares) {
-vector<int> minterms;
+vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinaries, const vector<int>& termNumbers, const vector<string>& dontCareBinaries, const vector<int>& dontCareNumbers) {
+    vector<string> totalBinaries = termBinaries;
+    vector<int> totalNumbers = termNumbers;
+    for (int i = 0; i < (int)dontCareBinaries.size(); ++i) {
+        totalBinaries.push_back(dontCareBinaries[i]);
+        totalNumbers.push_back(dontCareNumbers[i]);
+    }
 
-//if the input is maxterms, convert them to minterms first
-if (isMaxterm)
-minterms = convertMaxtermsToMinterms(terms);
-else
-minterms = terms;
+    // Create initial terms with correct covered minterm numbers
+    vector<Term> allTerms;
+    for (int i = 0; i < (int)totalBinaries.size(); ++i) {
+        allTerms.push_back(Term(totalBinaries[i], vector<int>{totalNumbers[i]}));
+    }
 
-// merge minterms and dont cares for combination
-vector<int> total = minterms;
-total.insert(total.end(), dontCares.begin(), dontCares.end());
+    bool canCombineFurther = true;
+    vector<Term> current = allTerms;
 
-//creating initial term list
-vector<Term> allTerms;
-for (int m : total)
-allTerms.push_back(Term(toBinary(m, numVariables), {m}));
+    while (canCombineFurther) {
+        canCombineFurther = false;
+        vector<Term> nextLevel;
+        vector<vector<Term>> groups(numVariables + 1);
 
-bool canCombineFurther = true;
-vector<Term> current = allTerms;
+        // Group terms by count of ones
+        for (int i = 0; i < (int)current.size(); ++i) {
+            groups[countOnes(current[i].binary)].push_back(current[i]);
+        }
 
-// repeat grouping/combining until no more combinations possible
-while (canCombineFurther) {
-canCombineFurther = false;
-vector<Term> nextLevel;
-vector<vector<Term>> groups(numVariables + 1);
-
-//group terms by number of 1s
-for (auto& t : current)
-groups[countOnes(t.binary)].push_back(t);
-
-//compare each group with the next one
-for (int i = 0; i < numVariables; ++i) {
-    for (auto& a : groups[i]) {
-        for (auto& b : groups[i + 1]) {
-            if (canCombine(a.binary, b.binary)) {
-            string combinedBin = combine(a.binary, b.binary);
-            vector<int> merged = a.coveredMinterms;
-            merged.insert(merged.end(), b.coveredMinterms.begin(), b.coveredMinterms.end());
-            nextLevel.push_back(Term(combinedBin, merged));
-            a.combined = b.combined = true;
-            canCombineFurther = true;
+        // Combine adjacent groups terms differing by one bit
+        for (int i = 0; i < numVariables; ++i) {
+            for (int j = 0; j < (int)groups[i].size(); ++j) {
+                for (int k = 0; k < (int)groups[i + 1].size(); ++k) {
+                    if (canCombine(groups[i][j].binary, groups[i + 1][k].binary)) {
+                        string combinedBin = combine(groups[i][j].binary, groups[i + 1][k].binary);
+                        vector<int> merged = groups[i][j].coveredMinterms;
+                        vector<int>& rhsMinterms = groups[i + 1][k].coveredMinterms;
+                        for (int m = 0; m < (int)rhsMinterms.size(); ++m) {
+                            merged.push_back(rhsMinterms[m]);
+                        }
+                        nextLevel.push_back(Term(combinedBin, merged));
+                        groups[i][j].combined = true;
+                        groups[i + 1][k].combined = true;
+                        canCombineFurther = true;
                     }
                 }
             }
         }
-//umcombined are prime implicants
-    for (auto& t : current) {
-        if (!t.combined)
-            primeImplicants.push_back(t);
+
+        for (int i = 0; i < (int)current.size(); ++i) {
+            if (!current[i].combined)
+                primeImplicants.push_back(current[i]);
+        }
+
+        current = nextLevel;
     }
 
-    current = nextLevel;
-}
 
 //remove duplicates
 sort(primeImplicants.begin(), primeImplicants.end(),
