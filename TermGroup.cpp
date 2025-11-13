@@ -63,69 +63,112 @@ vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinari
         totalNumbers.push_back(dontCareNumbers[i]);
     }
 
-    // Create initial terms with correct covered minterm numbers
-    vector<Term> allTerms;
-    for (int i = 0; i < (int)totalBinaries.size(); ++i) {
-        allTerms.push_back(Term(totalBinaries[i], vector<int>{totalNumbers[i]}));
-    }
+    vector<Term> current;
+    for (int i = 0; i < (int)totalBinaries.size(); ++i)
+        current.push_back(Term(totalBinaries[i], {totalNumbers[i]}));
 
     bool canCombineFurther = true;
-    vector<Term> current = allTerms;
 
     while (canCombineFurther) {
         canCombineFurther = false;
         vector<Term> nextLevel;
         vector<vector<Term>> groups(numVariables + 1);
 
-        // Group terms by count of ones
-        for (int i = 0; i < (int)current.size(); ++i) {
-            groups[countOnes(current[i].binary)].push_back(current[i]);
-        }
+        for (const auto& term : current)
+            groups[countOnes(term.binary)].push_back(term);
 
-        // Combine adjacent groups terms differing by one bit
         for (int i = 0; i < numVariables; ++i) {
-            for (int j = 0; j < (int)groups[i].size(); ++j) {
-                for (int k = 0; k < (int)groups[i + 1].size(); ++k) {
-                    if (canCombine(groups[i][j].binary, groups[i + 1][k].binary)) {
-                        string combinedBin = combine(groups[i][j].binary, groups[i + 1][k].binary);
-                        vector<int> merged = groups[i][j].coveredMinterms;
-                        vector<int>& rhsMinterms = groups[i + 1][k].coveredMinterms;
-                        for (int m = 0; m < (int)rhsMinterms.size(); ++m) {
-                            merged.push_back(rhsMinterms[m]);
-                        }
+            for (const auto& a : groups[i]) {
+                for (const auto& b : groups[i + 1]) {
+                    if (canCombine(a.binary, b.binary)) {
+                        string combinedBin = combine(a.binary, b.binary);
+                        vector<int> merged = a.coveredMinterms;
+                        merged.insert(merged.end(), b.coveredMinterms.begin(), b.coveredMinterms.end());
                         nextLevel.push_back(Term(combinedBin, merged));
-                        groups[i][j].combined = true;
-                        groups[i + 1][k].combined = true;
+                        const_cast<Term&>(a).combined = true;
+                        const_cast<Term&>(b).combined = true;
                         canCombineFurther = true;
                     }
                 }
             }
         }
 
-        for (int i = 0; i < (int)current.size(); ++i) {
-            if (!current[i].combined)
-                primeImplicants.push_back(current[i]);
-        }
+        //keep uncombined terms for later
+        for (const auto& term : current)
+            if (!term.combined) primeImplicants.push_back(term);
 
         current = nextLevel;
     }
 
+    //add any leftover terms
+    for (const auto& term : current)
+        primeImplicants.push_back(term);
 
-//remove duplicates
-sort(primeImplicants.begin(), primeImplicants.end(),
-[](const Term& a, const Term& b) { return a.binary < b.binary; });
-primeImplicants.erase(unique(primeImplicants.begin(), primeImplicants.end(),
-[](const Term& a, const Term& b) { return a.binary == b.binary; }), primeImplicants.end());
+    //remove duplicates
+    sort(primeImplicants.begin(), primeImplicants.end(),
+         [](const Term& a, const Term& b) { return a.binary < b.binary; });
+    primeImplicants.erase(unique(primeImplicants.begin(), primeImplicants.end(),
+         [](const Term& a, const Term& b) { return a.binary == b.binary; }), primeImplicants.end());
 
-return primeImplicants;
+    auto covers = [](const std::string& general, const std::string& specific) {
+        if (general.size() != specific.size()) return false;
+        bool different = false;
+        for (size_t i = 0; i < general.size(); ++i) {
+            if (general[i] == '-') { continue; }
+            if (general[i] != specific[i]) return false;
+            if (general[i] != '-') different = true; // just to avoid identical strings counting as cover
+        }
+        return general != specific; // ensure strict containment, not equality
+    };
 
+    std::vector<Term> filtered;
+    for (size_t i = 0; i < primeImplicants.size(); ++i) {
+        bool dominated = false;
+        for (size_t j = 0; j < primeImplicants.size() && !dominated; ++j) {
+            if (i == j) continue;
+            if (covers(primeImplicants[j].binary, primeImplicants[i].binary)) {
+                dominated = true; // i is fully covered by a more general j
+            }
+        }
+        if (!dominated) filtered.push_back(primeImplicants[i]);
+    }
+    primeImplicants.swap(filtered);
+
+    // ---- Remove implicants that cover only don't-care terms ----
+    {
+        std::vector<Term> finalFiltered;
+        for (const auto& t : primeImplicants) {
+            bool keep = false;
+            // keep if the implicant covers at least one true minterm (not just don't cares)
+            for (int m : t.coveredMinterms) {
+                // If m is a true minterm
+                if (std::find(termNumbers.begin(), termNumbers.end(), m) != termNumbers.end()) {
+                    keep = true;
+                    break;
+                }
+            }
+            if (keep)
+                finalFiltered.push_back(t);
+        }
+        primeImplicants.swap(finalFiltered);
+    }
+
+
+
+
+    return primeImplicants;
 }
+
 
 //printing prime implicants
 
 void TermGroup::printPrimeImplicants() const {
     cout << "Prime Implicants:" << endl;
+
+    // Filter: print only uncombined (true prime) implicants
     for (const auto& pi : primeImplicants) {
+        if (pi.combined) continue; // skip those merged into others
+
         cout << pi.binary << " covers { ";
         for (size_t i = 0; i < pi.coveredMinterms.size(); ++i) {
             cout << pi.coveredMinterms[i];
@@ -134,3 +177,4 @@ void TermGroup::printPrimeImplicants() const {
         cout << " }" << endl;
     }
 }
+
