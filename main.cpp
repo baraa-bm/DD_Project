@@ -18,6 +18,16 @@ struct Data {
     vector<string> mBinary;
     vector<string> dBinary;
 };
+
+// we added this function for the input validation to check that the variables enterd are numbers
+bool isNumber(const string& s) {
+    if (s.length() == 0) return false;
+    for (int i = 0; i < s.length(); i++) {
+        if (s[i] < '0' || s[i] > '9') return false;
+    }
+    return true;
+}
+
 int main()
 {
     string tests;
@@ -40,33 +50,132 @@ Data input;
         getline(file, l2);
         getline(file, l3);
 
-        input.nVariables = stoi(l1);
-        int maxVal = (1 << input.nVariables) - 1;
-    // the maximum input we can have is 2^n -1
-        char first = l2[0];
-    //inputting the first character of the second line to determine if they max or minterms
-        bool MaxTerm = (first == 'M');
+    if (!isNumber(l1)) {
+        cout << "First line must only contain a number." << endl;
+        return 1;
+    }
 
-        string token;
-        stringstream ss(l2);
+    input.nVariables = stoi(l1);
+
+    if (input.nVariables < 1 || input.nVariables > 20) {
+        cout << "Error: Number of variables must be between 1 and 20." << endl;
+        return 1;
+    }
+
+    int maxVal = (1 << input.nVariables) - 1;;
+    // the maximum input we can have is 2^n -1
+    if (l2.length() == 0) {
+        cout << " Second line is empty." << endl;
+        return 1;
+    }
+
+    if (!(l2[0] == 'm' || l2[0] == 'M')) {
+        cout << "Second line must start with m or M." << endl;
+        return 1;
+    }
+
+    bool MaxTerm = (l2[0] == 'M');
+    char first = l2[0];
+    //inputting the first character of the second line to determine if they max or minterms
+
 // here we are using parsing to disregard the comma and only input the terms in the second line
-        while (getline(ss, token, ',')) {
-            if (token[0] == first) {
-                int num = stoi(token.substr(1));
+       string token = "";
+    for (int i = 0; i <= l2.length(); i++) {
+        if (i == l2.length() || l2[i] == ',') {
+            if (token.length() > 0 && token[0] == first) {
+
+                string numPart = token.substr(1);
+
+                if (!isNumber(numPart)) {
+                    cout << "Invalid term: " << token << endl;
+                    return 1;
+                }
+
+                int num = stoi(numPart);
+
+                if (num < 0 || num > maxVal) {
+                    cout << "Error: Term " << num << " out of range." << endl;
+                    return 1;
+                }
+
+                // duplicate check using loops
+                bool dup = false;
+                for (int j = 0; j < input.minterms.size(); j++) {
+                    if (input.minterms[j] == num) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if (dup) {
+                    cout << "Error: Duplicate term: " << num << endl;
+                    return 1;
+                }
+
                 input.minterms.push_back(num);
             }
+            token = "";
+        } else {
+            token += l2[i];
         }
+    }
 
-        // same parsing but for the third line
-        if (!l3.empty() && l3[0] == 'd') {
-            stringstream ss2(l3);
-            while (getline(ss2, token, ',')) {
-                if (token[0] == 'd') {
-                    int num = stoi(token.substr(1));
-                    input.dontCares.push_back(num);
+    // Parsing line 3 (don't cares) like line 2
+    if (!l3.empty()) {
+        if (l3[0] == 'd' || l3[0] == 'D') {
+            char first_d = l3[0];
+            string token_d = "";
+
+            for (int i = 0; i <= l3.length(); i++) {
+                if (i == l3.length() || l3[i] == ',') {
+                    if (token_d.length() > 0 && token_d[0] == first_d) {
+                        string numPart = token_d.substr(1);
+                        if (!isNumber(numPart)) {
+                            cout << "Invalid dont-care term: " << token_d << endl;
+                            return 1;
+                        }
+                        int num = stoi(numPart);
+                        if (num < 0 || num > maxVal) {
+                            cout << "Error: Dont-care term " << num << " out of range." << endl;
+                            return 1;
+                        }
+                        // Duplicate check in don't cares
+                        bool dup_d = false;
+                        for (int j = 0; j < input.dontCares.size(); j++) {
+                            if (input.dontCares[j] == num) {
+                                dup_d = true;
+                                break;
+                            }
+                        }
+                        if (dup_d) {
+                            cout << "Error: Duplicate dont-care term: " << num << endl;
+                            return 1;
+                        }
+                        input.dontCares.push_back(num);
+                    }
+                    token_d = "";
+                } else {
+                    token_d += l3[i];
                 }
             }
+        } else {
+            cout << "Third line must start with d or D if provided." << endl;
+            return 1;
         }
+    }
+
+
+
+
+    // here we are checking that the term inputted in min/maxterms is not inputted in the dont cares as well
+    for (int i = 0; i < input.dontCares.size(); i++) {
+        for (int j = 0; j < input.minterms.size(); j++) {
+            if (input.dontCares[i] == input.minterms[j]) {
+                cout << "Error: Term " << input.dontCares[i]
+                     << " appears in both minterms and dont-cares." << endl;
+                return 1;
+            }
+        }
+    }
 // we will convert any maxterms to minterms so its easier to process later
     if (MaxTerm) {
         vector<int> newMins;

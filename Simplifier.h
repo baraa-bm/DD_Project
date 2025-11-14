@@ -19,6 +19,7 @@ private:
     std::string toBinary(int n) const;
     std::string getTermPattern(int a, int b, int diffBit) const;
     std::string termToExpression(const std::string& pattern) const;
+
 };
 
 #endif

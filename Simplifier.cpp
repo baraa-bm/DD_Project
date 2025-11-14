@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <functional>
 using namespace std;
 
 Simplifier::Simplifier(const std::vector<int>& mins, const std::vector<int>& dontCares, int vars)
@@ -69,7 +70,9 @@ std::string Simplifier::termToExpression(const std::string& pattern) const {
     return expr.empty() ? "1" : expr;
 }
 
-std::string Simplifier::simplify() {
+
+
+string Simplifier::simplify() {
     if (mins.empty()) return "0";
 
     // Combine minterms and don't cares for prime implicant generation
@@ -77,24 +80,24 @@ std::string Simplifier::simplify() {
     allTerms.insert(allTerms.end(), dontCares.begin(), dontCares.end());
 
     // Remove duplicates and sort
- set<int> uniqueTerms(allTerms.begin(), allTerms.end());
-   vector<int> sortedTerms(uniqueTerms.begin(), uniqueTerms.end());
+    set<int> uniqueTerms(allTerms.begin(), allTerms.end());
+    vector<int> sortedTerms(uniqueTerms.begin(), uniqueTerms.end());
 
     // Step 1: Group by number of ones
     // CHANGED: Using set<string> for patterns instead of vector<pair<int,string>>
-    map<int, std::set<std::string>> groups;
+    map<int, set<string>> groups;
     for (int term : sortedTerms) {
         int ones = countOnes(term);
         groups[ones].insert(toBinary(term));
     }
 
     // Step 2: Find all prime implicants using PATTERNS, not term numbers
-    set<std::string> primeImplicants;
-    map<int, std::set<std::string>> currentGroups = groups;
+    set<string> primeImplicants;
+    map<int, set<string>> currentGroups = groups;
 
     while (true) {
-        map<int, std::set<std::string>> nextGroups;
-        set<std::string> combined; // Track which patterns were combined
+        map<int, set<string>> nextGroups;
+        set<string> combined; // Track which patterns were combined
         bool foundCombination = false;
 
         // CHANGED: Proper pattern combination logic
@@ -102,8 +105,8 @@ std::string Simplifier::simplify() {
             if (currentGroups[ones].empty() || currentGroups[ones + 1].empty())
                 continue;
 
-            for (const std::string& pattern1 : currentGroups[ones]) {
-                for (const std::string& pattern2 : currentGroups[ones + 1]) {
+            for (const string& pattern1 : currentGroups[ones]) {
+                for (const string& pattern2 : currentGroups[ones + 1]) {
                     // Check if patterns can combine
                     int diffCount = 0;
                     int diffPos = -1;
@@ -129,7 +132,7 @@ std::string Simplifier::simplify() {
 
                     if (canCombine && diffCount == 1) {
                         // Create combined pattern
-                        std::string newPattern = pattern1;
+                        string newPattern = pattern1;
                         newPattern[diffPos] = '-';
 
                         nextGroups[ones].insert(newPattern);
@@ -143,7 +146,7 @@ std::string Simplifier::simplify() {
 
         // Add uncombined patterns to prime implicants
         for (const auto& [ones, patterns] : currentGroups) {
-            for (const std::string& pattern : patterns) {
+            for (const string& pattern : patterns) {
                 if (combined.find(pattern) == combined.end()) {
                     primeImplicants.insert(pattern);
                 }
@@ -156,13 +159,13 @@ std::string Simplifier::simplify() {
     }
 
     // Step 3: Build coverage table (ONLY for minterms, not don't cares)
-    map<int, std::set<std::string>> coverage;
-    map<std::string, std::set<int>> piCoverage;
+    map<int, set<string>> coverage;
+    map<string, set<int>> piCoverage;
 
-    for (const std::string& pi : primeImplicants) {
+    for (const string& pi : primeImplicants) {
         for (int m : mins) {
             bool covers = true;
-            std::string mintermBin = toBinary(m);
+            string mintermBin = toBinary(m);
             for (int i = 0; i < vars; i++) {
                 if (pi[i] == '-') continue;
                 if (pi[i] != mintermBin[i]) {
@@ -179,12 +182,12 @@ std::string Simplifier::simplify() {
 
     // Step 4: Find essential prime implicants
     // CHANGED: Fixed to avoid re-adding essentials
-    set<std::string> essentialPrimes;
+    set<string> essentialPrimes;
     set<int> coveredMinterms;
 
     for (const auto& [minterm, coveringPIs] : coverage) {
         if (coveringPIs.size() == 1) {
-            std::string essentialPI = *coveringPIs.begin();
+            string essentialPI = *coveringPIs.begin();
             if (essentialPrimes.insert(essentialPI).second) {
                 for (int m : piCoverage[essentialPI]) {
                     coveredMinterms.insert(m);
@@ -193,7 +196,7 @@ std::string Simplifier::simplify() {
         }
     }
 
-    // Step 5: Cover remaining minterms
+    // Step 5: Find all minimal covers
     set<int> remainingMinterms;
     for (int m : mins) {
         if (coveredMinterms.find(m) == coveredMinterms.end()) {
@@ -201,86 +204,130 @@ std::string Simplifier::simplify() {
         }
     }
 
-    set<std::string> selectedCover = essentialPrimes;
-
-    while (!remainingMinterms.empty()) {
-        std::string bestPI;
-        int maxCover = 0;
-
-        for (const auto& [pi, covered] : piCoverage) {
-            if (selectedCover.count(pi)) continue;
-
-            int coverCount = 0;
-            for (int m : remainingMinterms) {
-                if (covered.count(m)) coverCount++;
-            }
-
-            if (coverCount > maxCover) {
-                maxCover = coverCount;
-                bestPI = pi;
+    // Get non-essential PIs that can cover remaining minterms
+    vector<string> nonEssentialPIs;
+    for (const auto& [pi, covered] : piCoverage) {
+        if (essentialPrimes.count(pi)) continue;
+        bool coversRemaining = false;
+        for (int m : remainingMinterms) {
+            if (covered.count(m)) {
+                coversRemaining = true;
+                break;
             }
         }
+        if (coversRemaining) {
+            nonEssentialPIs.push_back(pi);
+        }
+    }
 
-        if (bestPI.empty()) break;
+    // Find all minimal covers using backtracking
+    vector<set<string>> allMinimalCovers;
+    int minCoverSize = INT_MAX;
 
-        selectedCover.insert(bestPI);
-        for (int m : piCoverage[bestPI]) {
-            remainingMinterms.erase(m);
+    function <void(size_t, set<string>, set<int>)> findCovers;
+    findCovers = [&](size_t idx, set<string> currentCover, set<int> uncovered) {
+        // Pruning: if current cover is already larger than best found, skip
+        if (currentCover.size() >= minCoverSize) return;
+
+        // If all minterms covered
+        if (uncovered.empty()) {
+            if (currentCover.size() < minCoverSize) {
+                minCoverSize = currentCover.size();
+                allMinimalCovers.clear();
+                allMinimalCovers.push_back(currentCover);
+            } else if (currentCover.size() == minCoverSize) {
+                allMinimalCovers.push_back(currentCover);
+            }
+            return;
+        }
+
+        // If we've considered all PIs
+        if (idx >= nonEssentialPIs.size()) return;
+
+        // Try including current PI
+        const string& pi = nonEssentialPIs[idx];
+        set<int> newUncovered = uncovered;
+        for (int m : piCoverage.at(pi)) {
+            newUncovered.erase(m);
+        }
+        set<string> newCover = currentCover;
+        newCover.insert(pi);
+        findCovers(idx + 1, newCover, newUncovered);
+
+        // Try excluding current PI
+        findCovers(idx + 1, currentCover, uncovered);
+    };
+
+    if (remainingMinterms.empty()) {
+        // No additional PIs needed
+        allMinimalCovers.push_back(set<string>());
+    } else {
+        findCovers(0, set<string>(), remainingMinterms);
+    }
+
+    // Build all final covers (essential + each minimal cover)
+    vector<set<string>> allFinalCovers;
+    for (const auto& minCover : allMinimalCovers) {
+        set<string> finalCover = essentialPrimes;
+        finalCover.insert(minCover.begin(), minCover.end());
+        allFinalCovers.push_back(finalCover);
+    }
+
+    // Use first cover for compatibility
+    set<string> selectedCover = allFinalCovers.empty() ? essentialPrimes : allFinalCovers[0];
+    set<int> finalRemaining = remainingMinterms;
+    for (const auto& pi : selectedCover) {
+        if (piCoverage.count(pi)) {
+            for (int m : piCoverage.at(pi)) {
+                finalRemaining.erase(m);
+            }
         }
     }
 
     // ---- Printing Section ----
-    cout << "\nPrime Implicants:\n";
-    for (const std::string& pi : primeImplicants) {
-        cout << "  " << pi << "  →  " << termToExpression(pi);
-        cout << "  covers: {";
-        bool first = true;
-        for (int m : piCoverage[pi]) {
-            if (!first) cout << ", ";
-            cout << m;
-            first = false;
-        }
-        cout << "}\n";
-    }
-
     cout << "\nEssential Prime Implicants:\n";
     if (essentialPrimes.empty()) {
         cout << "  (None)\n";
     } else {
-        for (const std::string& epi : essentialPrimes) {
-            cout << "  " << epi << "  →  " << termToExpression(epi) << "\n";
+        for (const string& epi : essentialPrimes) {
+            cout << "  " << epi << "  " << termToExpression(epi) << endl;
         }
     }
 
-    cout << "\nFinal Cover:\n";
-    for (const std::string& pi : selectedCover) {
-        cout << "  " << pi << "  →  " << termToExpression(pi) << "\n";
-    }
-
-    if (!remainingMinterms.empty()) {
-        cout << "\nWARNING: Uncovered minterms: ";
-        for (int m : remainingMinterms) {
-            cout << m << " ";
+    cout << "All Possible Minimal Covers:\n";
+    for (size_t i = 0; i < allFinalCovers.size(); i++) {
+        cout << "Cover " << (i + 1) << ":\n";
+        for (const string& pi : allFinalCovers[i]) {
+            cout << "  " << pi << "  " << termToExpression(pi) << endl;
         }
-        cout << "\n";
     }
 
-    // ---- Build Final Simplified Expression ----
-    if (selectedCover.empty()) return "0";
 
-    vector<std::string> terms;
-    for (const std::string& pi : selectedCover) {
-        terms.push_back(termToExpression(pi));
+    // ---- Build All Final Simplified Expressions ----
+    if (allFinalCovers.empty()) return "0";
+
+    vector<string> allExpressions;
+    for (const auto& cover : allFinalCovers) {
+        vector<string> terms;
+        for (const string& pi : cover) {
+            terms.push_back(termToExpression(pi));
+        }
+        sort(terms.begin(), terms.end());
+
+        string expr;
+        for (size_t i = 0; i < terms.size(); i++) {
+            if (i > 0) expr += " + ";
+            expr += terms[i];
+        }
+        allExpressions.push_back(expr);
     }
 
-    sort(terms.begin(), terms.end());
-
-    string result;
-    for (size_t i = 0; i < terms.size(); i++) {
-        if (i > 0) result += " + ";
-        result += terms[i];
+    // Print all possible expressions
+    cout << "All Possible Minimal Boolean Expressions:"<<endl;
+    for (size_t i = 0; i < allExpressions.size(); i++) {
+        cout << "Expression " << (i + 1) << ": " << allExpressions[i] << endl;
     }
 
-    return result;
+    return allExpressions[0]; // Return first one for compatibility
 }
 
