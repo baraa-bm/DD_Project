@@ -17,7 +17,6 @@ add_executable(DD_Project
         test10
         Simplifier.cpp
         Simplifier.h
-        InputHandler.cpp
         TermGroup.cpp
         TermGroup.h
         VerilogGenerator.cpp)
