@@ -83,31 +83,36 @@ string Simplifier::simplify() {
     set<int> uniqueTerms(allTerms.begin(), allTerms.end());
     vector<int> sortedTerms(uniqueTerms.begin(), uniqueTerms.end());
 
-    // Step 1: Group by number of ones
-    // CHANGED: Using set<string> for patterns instead of vector<pair<int,string>>
+
+
+
+    // grouping by number of ones
+ 
     map<int, set<string>> groups;
     for (int term : sortedTerms) {
         int ones = countOnes(term);
         groups[ones].insert(toBinary(term));
     }
 
-    // Step 2: Find all prime implicants using PATTERNS, not term numbers
+    //finding all prime implicants using PATTERNS, not term numbers
     set<string> primeImplicants;
     map<int, set<string>> currentGroups = groups;
 
     while (true) {
         map<int, set<string>> nextGroups;
-        set<string> combined; // Track which patterns were combined
+
+
+        set<string> combined; 
         bool foundCombination = false;
 
-        // CHANGED: Proper pattern combination logic
+        // the pattern combination logic
         for (int ones = 0; ones < vars; ones++) {
             if (currentGroups[ones].empty() || currentGroups[ones + 1].empty())
                 continue;
 
             for (const string& pattern1 : currentGroups[ones]) {
                 for (const string& pattern2 : currentGroups[ones + 1]) {
-                    // Check if patterns can combine
+                    // checking if patterns can combine
                     int diffCount = 0;
                     int diffPos = -1;
                     bool canCombine = true;
@@ -131,7 +136,7 @@ string Simplifier::simplify() {
                     }
 
                     if (canCombine && diffCount == 1) {
-                        // Create combined pattern
+                        // creating a combined pattern
                         string newPattern = pattern1;
                         newPattern[diffPos] = '-';
 
@@ -144,7 +149,8 @@ string Simplifier::simplify() {
             }
         }
 
-        // Add uncombined patterns to prime implicants
+        //adding a uncombined patterns to prime implicants
+
         for (const auto& [ones, patterns] : currentGroups) {
             for (const string& pattern : patterns) {
                 if (combined.find(pattern) == combined.end()) {
@@ -158,7 +164,9 @@ string Simplifier::simplify() {
         currentGroups = nextGroups;
     }
 
-    // Step 3: Build coverage table (ONLY for minterms, not don't cares)
+    //building coverage table (ONLY for minterms, not don't cares)
+
+
     map<int, set<string>> coverage;
     map<string, set<int>> piCoverage;
 
@@ -180,7 +188,7 @@ string Simplifier::simplify() {
         }
     }
 
-    // Step 4: Find essential prime implicants
+    //Finding essential prime implicants
     // CHANGED: Fixed to avoid re-adding essentials
     set<string> essentialPrimes;
     set<int> coveredMinterms;
@@ -196,7 +204,7 @@ string Simplifier::simplify() {
         }
     }
 
-    // Step 5: Find all minimal covers
+    //finding all minimal covers
     set<int> remainingMinterms;
     for (int m : mins) {
         if (coveredMinterms.find(m) == coveredMinterms.end()) {
@@ -220,16 +228,18 @@ string Simplifier::simplify() {
         }
     }
 
-    // Find all minimal covers using backtracking
+    // finding all minimal covers using backtracking
+
     vector<set<string>> allMinimalCovers;
+
     int minCoverSize = INT_MAX;
 
     function <void(size_t, set<string>, set<int>)> findCovers;
     findCovers = [&](size_t idx, set<string> currentCover, set<int> uncovered) {
-        // Pruning: if current cover is already larger than best found, skip
+        // if current cover is already larger than best found, skip
         if (currentCover.size() >= minCoverSize) return;
 
-        // If all minterms covered
+        // if all minterms covered
         if (uncovered.empty()) {
             if (currentCover.size() < minCoverSize) {
                 minCoverSize = currentCover.size();
@@ -241,10 +251,10 @@ string Simplifier::simplify() {
             return;
         }
 
-        // If we've considered all PIs
+        // if we've considered all PIs
         if (idx >= nonEssentialPIs.size()) return;
 
-        // Try including current PI
+        // try including current PI
         const string& pi = nonEssentialPIs[idx];
         set<int> newUncovered = uncovered;
         for (int m : piCoverage.at(pi)) {
@@ -254,26 +264,28 @@ string Simplifier::simplify() {
         newCover.insert(pi);
         findCovers(idx + 1, newCover, newUncovered);
 
-        // Try excluding current PI
+        // try excluding current PI
         findCovers(idx + 1, currentCover, uncovered);
     };
 
     if (remainingMinterms.empty()) {
-        // No additional PIs needed
+        // no additional PIs needed
         allMinimalCovers.push_back(set<string>());
     } else {
         findCovers(0, set<string>(), remainingMinterms);
     }
 
-    // Build all final covers (essential + each minimal cover)
+    // build all final covers (essential + each minimal cover)
     vector<set<string>> allFinalCovers;
     for (const auto& minCover : allMinimalCovers) {
+
         set<string> finalCover = essentialPrimes;
         finalCover.insert(minCover.begin(), minCover.end());
         allFinalCovers.push_back(finalCover);
     }
 
-    // Use first cover for compatibility
+    // use first cover for compatibility
+
     set<string> selectedCover = allFinalCovers.empty() ? essentialPrimes : allFinalCovers[0];
     set<int> finalRemaining = remainingMinterms;
     for (const auto& pi : selectedCover) {
@@ -284,7 +296,7 @@ string Simplifier::simplify() {
         }
     }
 
-    // ---- Printing Section ----
+    // printing the output
     cout << "\nEssential Prime Implicants:\n";
     if (essentialPrimes.empty()) {
         cout << "  (None)\n";
@@ -303,7 +315,7 @@ string Simplifier::simplify() {
     }
 
 
-    // ---- Build All Final Simplified Expressions ----
+    // building simplified expressions
     if (allFinalCovers.empty()) return "0";
 
     vector<string> allExpressions;
@@ -322,7 +334,7 @@ string Simplifier::simplify() {
         allExpressions.push_back(expr);
     }
 
-    // Print all possible expressions
+    // printing all possible expressions
     cout << "All Possible Minimal Boolean Expressions:"<<endl;
     for (size_t i = 0; i < allExpressions.size(); i++) {
         cout << "Expression " << (i + 1) << ": " << allExpressions[i] << endl;

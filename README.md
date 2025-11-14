@@ -1,44 +1,45 @@
 # DD_Project
 
-## How the Program Works
-1. **User Input:**  
-   The user specifies the number of variables and minterms. Each minterm represents a binary combination where the function output is 1.
-2. **Simplification Steps:**  
-   - Minterms are grouped according to the number of 1s in their binary representation.  
-   - Adjacent groups are compared to find terms that differ by one bit.  
-   - Combined terms form **prime implicants**.  
-   - Redundant implicants are removed to form the minimal Boolean expression.
-3. **Output:**  
-   The program displays the simplified Boolean expression and shows intermediate grouping and combination steps for clarity.
+## How to Build the Application
+
+Make sure you are inside the project folder, then compile using:
+
+```
+g++ main.cpp Simplifier.cpp TermGroup.cpp VerilogGenerator.cpp -o main.exe
+```
+
+This command generates the executable:
+
+```
+main.exe
+```
 
 ---
 
-### Roles Within the Code
-- **Simplifier Class:** Responsible for core logic and data processing.  
-- **Main Function:** Connects the user interface with the Simplifier’s functionality.  
-- **Header File:** Ensures modularity, reusability, and a clean structure for future extensions.
+## How to Run the Application
+
+After building, run the program with:
+
+```
+./main.exe
+```
+
+The application will then ask for the file name containing your minterms:
+
+```
+Enter the file name you want to test:
+```
+
+Provide the name of the file (you can choose any test file across all the 10 we have available)
+
 
 ---
 
-## Example of Execution
+## Output
 
-**Input:**
-```
-Enter number of variables: 3
-Enter number of minterms: 4
-Enter the minterms (space-separated): 1 3 5 7
-```
+The program will display:
 
-**Output:**
-```
-Simplifier Details:
-Variables: 3
-Minterms: 1 3 5 7
-Prime Implicants (patterns): 0-1 1-1 11-
-
- Simplified Boolean Expression: B + AC
-```
-
-**Explanation:**  
-The minterms represent all the input combinations for which the function is true.  
-The algorithm groups, compares, and minimizes them to produce a shorter equivalent Boolean expression.
+- Prime Implicants and Essential Prime Implicants
+- Possible minimal covers 
+- The simplified Boolean expression  
+- **Bonus:** The generated Verilog module using Verilog primitives will be written in a file called "output.v"

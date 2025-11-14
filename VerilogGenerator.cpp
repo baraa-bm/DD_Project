@@ -3,6 +3,8 @@
 #include <iostream>
 using namespace std;
 
+
+//the bonus part of the code
 void VerilogGenerator::generateVerilog(const vector<string>& implicants, int varCount) {
     ofstream file("output.v");
     if (!file.is_open()) {
@@ -15,10 +17,12 @@ void VerilogGenerator::generateVerilog(const vector<string>& implicants, int var
         file << ", input x" << i;
     file << ");\n\n";
 
-    // Define negation wires
+    //the negation wires
     for (int i = 0; i < varCount; ++i)
         file << "  wire nx" << i << ";\n";
     file << "\n";
+
+
 
     // NOT gates
     for (int i = 0; i < varCount; ++i)
