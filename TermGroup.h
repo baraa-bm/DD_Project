@@ -27,13 +27,11 @@ public:
 class TermGroup {
 private:
 int numVariables; //number of variables
-bool isMaxterm; //true if we're simplifying from maxterms
 vector<Term> primeImplicants; //final list of prime implicants
 
 int countOnes(const string& binary); //count 1s in binary string
 bool canCombine(const string& a, const string& b); //check if differ by one bit
 string combine(const string& a, const string& b); //replace differing bit with -
-vector<int> convertMaxtermsToMinterms(const vector<int>& maxterms); //conversion helper
 
 public:
 

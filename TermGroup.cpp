@@ -5,56 +5,45 @@
 #include "TermGroup.h"
 
 //constructor
-TermGroup::TermGroup(int vars, bool maxtermMode) : numVariables(vars), isMaxterm(maxtermMode) {}
+TermGroup::TermGroup(int vars, bool maxtermMode) : numVariables(vars) {}
 
-
-
-//count numer of 1s in binary string
+//count number of 1s in binary string
 int TermGroup::countOnes(const string& binary) {
-int count = 0;
-for (char c : binary)
-if (c == '1')
-count ++;
-return count;
+    int count = 0;
+    for (char c : binary)
+    if (c == '1')
+    count ++;
+    return count;
 }
 
 
-//check if two terms differ by exactly one bit
+//check if two terms differ by exactly one bit, returns true if the two strings can be combined
 bool TermGroup::canCombine(const string& a, const string& b) {
-int diff = 0;
-for (int i = 0; i < a.size(); i++) {
-if (a[i] != b[i]) {
-diff++;
-if (diff > 1) return false;
-}
-}
-return diff == 1;
+    int diff = 0;
+    for (int i = 0; i < a.size(); i++) {
+        if (a[i] != b[i]) {
+            diff++;
+            if (diff > 1) return false;
+        }
+    }
+    return diff == 1;
 }
 
-//combine two terms that differ by one bit
+//combining the two terms that differ by one bit, where the differing bit is replaced by '-'
 string TermGroup::combine(const string& a, const string& b) {
-string result = a;
-for (int i = 0; i < a.size(); i++) {
-if (a[i] != b[i])
-result[i] = '-';
+    string result = a;
+    for (int i = 0; i < a.size(); i++) {
+        if (a[i] != b[i])
+        result[i] = '-';
+    }
+    return result;
 }
-return result;
-}
-
-//convert maxterms to minterms
-vector<int> TermGroup::convertMaxtermsToMinterms(const vector<int>& maxterms) {
-int total = pow(2, numVariables);
-vector<int> minterms;
-for (int i = 0; i < total; ++i) {
-if (find(maxterms.begin(), maxterms.end(), i) == maxterms.end())
-minterms.push_back(i);
-}
-return minterms;
-
-}
-
 
 //generating prime implicants
+//combines minterms and dont cares into more general terms
+//groups terms by num of 1s and compares adjacent groups
+//marks combined terms and keeps track of those that cant be combined
+//returns the final list of unique PIs
 vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinaries, const vector<int>& termNumbers, const vector<string>& dontCareBinaries, const vector<int>& dontCareNumbers) {
     vector<string> totalBinaries = termBinaries;
     vector<int> totalNumbers = termNumbers;
@@ -100,16 +89,17 @@ vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinari
         current = nextLevel;
     }
 
-    //add any leftover terms
+    //add any leftover terms as prime implicants
     for (const auto& term : current)
         primeImplicants.push_back(term);
 
-    //remove duplicates
+    //remove duplicates (same bianry pattern)
     sort(primeImplicants.begin(), primeImplicants.end(),
          [](const Term& a, const Term& b) { return a.binary < b.binary; });
     primeImplicants.erase(unique(primeImplicants.begin(), primeImplicants.end(),
          [](const Term& a, const Term& b) { return a.binary == b.binary; }), primeImplicants.end());
 
+    //remove dominated implicants (fully covered by more general ones)
     auto covers = [](const std::string& general, const std::string& specific) {
         if (general.size() != specific.size()) return false;
         bool different = false;
@@ -121,7 +111,7 @@ vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinari
         return general != specific; // ensure strict containment, not equality
     };
 
-    std::vector<Term> filtered;
+    vector<Term> filtered;
     for (size_t i = 0; i < primeImplicants.size(); ++i) {
         bool dominated = false;
         for (size_t j = 0; j < primeImplicants.size() && !dominated; ++j) {
@@ -134,7 +124,7 @@ vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinari
     }
     primeImplicants.swap(filtered);
 
-    // ---- Remove implicants that cover only don't-care terms ----
+    //removing implicants that cover only dont cares
     {
         std::vector<Term> finalFiltered;
         for (const auto& t : primeImplicants) {
@@ -153,14 +143,11 @@ vector<Term> TermGroup::generatePrimeImplicants(const vector<string>& termBinari
         primeImplicants.swap(finalFiltered);
     }
 
-
-
-
     return primeImplicants;
 }
 
 
-//printing prime implicants
+//printing prime implicants (uncombined) and the minterms they cover
 
 void TermGroup::printPrimeImplicants() const {
     cout << "Prime Implicants:" << endl;
