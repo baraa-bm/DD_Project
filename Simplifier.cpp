@@ -237,7 +237,7 @@ string Simplifier::simplify() {
     function <void(size_t, set<string>, set<int>)> findCovers;
     findCovers = [&](size_t idx, set<string> currentCover, set<int> uncovered) {
         // if current cover is already larger than best found, skip
-        if (currentCover.size() >= minCoverSize) return;
+        if (currentCover.size() > minCoverSize) return;
 
         // if all minterms covered
         if (uncovered.empty()) {

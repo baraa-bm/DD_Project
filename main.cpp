@@ -49,7 +49,7 @@ Data input;
         getline(file, l1);
         getline(file, l2);
         getline(file, l3);
-
+// we will read line by line and preform input validaion
     if (!isNumber(l1)) {
         cout << "First line must only contain a number." << endl;
         return 1;
